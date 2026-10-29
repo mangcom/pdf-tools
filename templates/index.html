@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PDF Tools | BNCC</title>
+<style>
+:root{--p:#2563eb;--pd:#1d4ed8;--a:#10b981;--d:#ef4444;--w:#f59e0b;
+  --bg:#f0f4ff;--card:#fff;--tx:#1e293b;--mu:#64748b;--bd:#e2e8f0;--r:12px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI","Sarabun",sans-serif;background:var(--bg);
+  color:var(--tx);min-height:100vh;padding:20px 14px 48px}
+header{text-align:center;margin-bottom:22px}
+header h1{font-size:1.9rem;font-weight:700;color:var(--p)}
+header p{color:var(--mu);margin-top:4px;font-size:.93rem}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:6px;max-width:860px;margin:0 auto 16px}
+.tab-btn{flex:1;padding:11px;font-size:.95rem;font-weight:700;
+  border:2px solid var(--bd);border-radius:var(--r);background:var(--card);
+  color:var(--mu);cursor:pointer;transition:all .18s}
+.tab-btn.active{background:var(--p);color:#fff;border-color:var(--p)}
+.tab-btn:hover:not(.active){border-color:var(--p);color:var(--p)}
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+/* ── CARD ── */
+.card{background:var(--card);border-radius:var(--r);
+  box-shadow:0 2px 12px rgba(0,0,0,.08);padding:22px;
+  max-width:860px;margin:0 auto 18px}
+
+/* ── DROP ZONE ── */
+.drop-zone{border:2.5px dashed var(--p);border-radius:var(--r);
+  padding:36px 20px;text-align:center;cursor:pointer;
+  transition:background .2s,border-color .2s}
+.drop-zone.drag-over{background:#eff6ff;border-color:var(--pd)}
+.drop-zone .icon{font-size:2.6rem;display:block;margin-bottom:8px}
+.drop-zone p{color:var(--mu)}.drop-zone strong{color:var(--p)}
+
+/* ── FILE TABLE (convert) ── */
+#cv-file-wrap{margin-top:14px;display:none}
+.apply-all{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:#f8faff;border:1px solid #dbeafe;border-radius:8px;
+  padding:7px 11px;margin-bottom:8px}
+.apply-all label{font-size:.8rem;font-weight:700;color:var(--p);white-space:nowrap}
+.apply-all input{flex:1;min-width:130px;padding:5px 9px;
+  border:1.5px solid var(--bd);border-radius:6px;font-size:.86rem}
+.apply-all button{padding:5px 13px;background:var(--p);color:#fff;
+  border:none;border-radius:6px;font-size:.8rem;font-weight:700;cursor:pointer}
+.apply-all button:hover{background:var(--pd)}
+.hint{font-size:.74rem;color:var(--mu);margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+thead th{text-align:left;padding:6px 9px;border-bottom:2px solid var(--bd);
+  color:var(--mu);font-weight:700;font-size:.76rem;text-transform:uppercase}
+tbody tr{border-bottom:1px solid var(--bd)}
+tbody tr:last-child{border-bottom:none}
+tbody td{padding:7px 9px;vertical-align:middle}
+td.fname{font-weight:600;word-break:break-all;max-width:240px}
+td.pages input{width:100%;padding:5px 9px;border:1.5px solid var(--bd);
+  border-radius:6px;font-size:.84rem;transition:border-color .2s}
+td.pages input.ok{border-color:var(--a)}
+td.pages input.err{border-color:var(--d)}
+td.rm button{background:none;border:none;cursor:pointer;color:var(--d);font-size:1rem}
+
+/* ── COMPRESS TARGET ── */
+.target-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:#f8faff;border:1px solid #dbeafe;border-radius:8px;
+  padding:9px 11px;margin-bottom:8px}
+.target-row label{font-size:.8rem;font-weight:700;color:var(--p);white-space:nowrap}
+.target-row input[type=number]{width:80px;padding:5px 9px;
+  border:1.5px solid var(--bd);border-radius:6px;font-size:.86rem}
+.target-row .unit{font-size:.8rem;color:var(--mu)}
+.chip{padding:5px 12px;background:#fff;color:var(--p);border:1.5px solid var(--p);
+  border-radius:999px;font-size:.78rem;font-weight:700;cursor:pointer;transition:all .15s}
+.chip:hover,.chip.active{background:var(--p);color:#fff}
+
+/* ── MERGE FILE LIST ── */
+#mg-file-list{margin-top:14px;display:none}
+.mg-hint{font-size:.78rem;color:var(--mu);margin-bottom:8px}
+.mg-row{display:flex;align-items:center;gap:8px;padding:8px 10px;
+  background:#fafafa;border:1px solid var(--bd);border-radius:8px;
+  margin-bottom:6px;cursor:grab;transition:background .15s;user-select:none}
+.mg-row:hover{background:#f0f4ff}.mg-row.dragging{opacity:.45;cursor:grabbing}
+.mg-row.drag-target{border:2px dashed var(--p);background:#eff6ff}
+.mg-num{width:24px;height:24px;border-radius:50%;background:var(--p);
+  color:#fff;font-size:.75rem;font-weight:700;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0}
+.mg-name{flex:1;font-weight:600;font-size:.88rem;word-break:break-all}
+.mg-arrows{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.mg-arrows button{background:none;border:1px solid var(--bd);border-radius:4px;
+  width:22px;height:18px;cursor:pointer;font-size:.65rem;line-height:1;
+  color:var(--mu);transition:background .15s}
+.mg-arrows button:hover{background:#dbeafe;color:var(--p)}
+.mg-rm{background:none;border:none;cursor:pointer;color:var(--d);font-size:1rem}
+
+/* ── OPTIONS ── */
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:11px;margin-top:14px}
+.og{display:flex;flex-direction:column;gap:4px}
+.og label{font-size:.76rem;color:var(--mu);font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px}
+.og select{padding:7px 10px;border:1.5px solid var(--bd);border-radius:8px;
+  font-size:.88rem;background:#fff}
+
+/* ── BUTTON ── */
+.main-btn{margin-top:14px;width:100%;padding:12px;font-size:.97rem;
+  font-weight:700;background:var(--p);color:#fff;border:none;
+  border-radius:var(--r);cursor:pointer;transition:background .2s,transform .1s}
+.main-btn:hover:not(:disabled){background:var(--pd)}
+.main-btn:active:not(:disabled){transform:scale(.98)}
+.main-btn:disabled{background:var(--mu);cursor:not-allowed}
+
+/* ── PROGRESS ── */
+.prog-wrap{margin-top:12px;display:none}
+.prog-outer{background:var(--bd);border-radius:999px;height:9px;overflow:hidden}
+.prog-inner{height:100%;width:0%;background:var(--p);transition:width .4s;border-radius:999px}
+.prog-label{text-align:center;font-size:.8rem;color:var(--mu);margin-top:4px}
+
+/* ── RESULTS ── */
+.res-section{display:none}
+.pdf-block{margin-bottom:20px}
+.pdf-block h3{font-size:.94rem;display:flex;align-items:center;gap:6px;
+  flex-wrap:wrap;padding-bottom:5px;border-bottom:1px solid var(--bd);margin-bottom:9px}
+.badge{border-radius:999px;padding:2px 9px;font-size:.71rem;font-weight:700}
+.bg{background:#d1fae5;color:#065f46}.bb{background:#dbeafe;color:#1e40af}
+.bw{background:#fef3c7;color:#92400e}
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:7px}
+.img-card{border:1px solid var(--bd);border-radius:8px;overflow:hidden;
+  background:#fafafa;text-align:center;font-size:.71rem}
+.img-card img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}
+.img-card a{display:block;padding:5px;color:var(--p);text-decoration:none;
+  font-weight:600;border-top:1px solid var(--bd)}
+.img-card a:hover{background:#eff6ff}
+.dl-btn{display:block;text-align:center;padding:11px 18px;margin-top:12px;
+  color:#fff;border-radius:var(--r);font-weight:700;text-decoration:none;
+  font-size:.93rem;transition:opacity .2s}
+.dl-btn:hover{opacity:.87}
+.dl-zip{background:var(--a)}.dl-merge{background:var(--p)}
+.err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:var(--r);
+  padding:9px 13px;color:var(--d);margin-bottom:9px;font-size:.86rem}
+.info-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);
+  padding:12px 16px;font-size:.88rem;line-height:1.7}
+.cleanup-note{font-size:.73rem;color:var(--mu);text-align:center;
+  margin-top:6px;font-style:italic}
+</style>
+</head>
+<body>
+<header>
+  <h1>&#128196; PDF Tools</h1>
+  <p>แปลงเป็นรูปภาพ &middot; รวมหลายไฟล์ &middot; ลดขนาดไฟล์ &middot; ไฟล์จะถูกลบอัตโนมัติภายใน 15 นาที</p>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('convert',this)">
+    &#128247; แปลง PDF &#8594; รูปภาพ
+  </button>
+  <button class="tab-btn" onclick="switchTab('merge',this)">
+    &#128203; รวม PDF (Merge)
+  </button>
+  <button class="tab-btn" onclick="switchTab('compress',this)">
+    &#128230; ลดขนาดไฟล์ PDF
+  </button>
+</div>
+
+<!-- ════════ TAB: CONVERT ════════ -->
+<div class="tab-panel active" id="tab-convert">
+  <div class="card">
+    <div class="drop-zone" id="cv-drop" onclick="cvFileInput.click()">
+      <span class="icon">&#9729;&#65039;</span>
+      <p><strong>คลิกหรือลากไฟล์ PDF มาวางที่นี่</strong></p>
+      <p>รองรับหลายไฟล์ &middot; สูงสุด 200 MB รวม</p>
+    </div>
+    <input type="file" id="cv-file-input" accept=".pdf" multiple style="display:none">
+
+    <div id="cv-file-wrap">
+      <div class="apply-all" style="margin-top:12px">
+        <label>&#128196; ใช้กับทุกไฟล์:</label>
+        <input type="text" id="cv-global-pages" placeholder="เช่น 1,3-5,8  (ว่าง=ทุกหน้า)">
+        <button onclick="cvApplyAll()">&#9654; ใช้กับทุกไฟล์</button>
+      </div>
+      <div class="hint">&#128161; กำหนดหน้าแยกต่างหากแต่ละไฟล์ได้ &middot; ใช้ <strong>,</strong> และ <strong>-</strong> &middot; เว้นว่าง = ทุกหน้า</div>
+      <table>
+        <thead><tr>
+          <th style="width:1.8rem">#</th>
+          <th>ชื่อไฟล์</th>
+          <th style="width:200px">เลือกหน้า</th>
+          <th style="width:2.5rem"></th>
+        </tr></thead>
+        <tbody id="cv-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="opts">
+      <div class="og"><label>รูปแบบไฟล์</label>
+        <select id="cv-fmt">
+          <option value="PNG">PNG – คุณภาพสูง</option>
+          <option value="JPG">JPG – ขนาดเล็ก</option>
+          <option value="WEBP">WEBP – สมดุล</option>
+        </select>
+      </div>
+      <div class="og"><label>ความละเอียด (DPI)</label>
+        <select id="cv-dpi">
+          <option value="96">96 – เร็ว</option>
+          <option value="150" selected>150 – มาตรฐาน</option>
+          <option value="200">200 – ชัด</option>
+          <option value="300">300 – พิมพ์</option>
+        </select>
+      </div>
+    </div>
+    <button class="main-btn" id="cv-btn" disabled>&#128260; แปลง PDF เป็นรูปภาพ</button>
+    <div class="prog-wrap" id="cv-prog">
+      <div class="prog-outer"><div class="prog-inner" id="cv-pb"></div></div>
+      <div class="prog-label" id="cv-pl">กำลังแปลง...</div>
+    </div>
+  </div>
+
+  <div class="card res-section" id="cv-res">
+    <div id="cv-err"></div>
+    <div id="cv-out"></div>
+    <a class="dl-btn dl-zip" id="cv-zip" href="#" style="display:none" target="_blank">
+      &#11015;&#65039; ดาวน์โหลดทั้งหมดเป็น ZIP
+    </a>
+    <p class="cleanup-note" id="cv-clean-note" style="display:none">
+      &#128465;&#65039; ไฟล์ในเซิร์ฟเวอร์จะถูกลบอัตโนมัติภายใน 15 นาที กรุณาดาวน์โหลดให้ทันเวลา
+    </p>
+  </div>
+</div>
+
+<!-- ════════ TAB: MERGE ════════ -->
+<div class="tab-panel" id="tab-merge">
+  <div class="card">
+    <div class="drop-zone" id="mg-drop" onclick="mgFileInput.click()">
+      <span class="icon">&#128203;</span>
+      <p><strong>คลิกหรือลากไฟล์ PDF ที่ต้องการรวม</strong></p>
+      <p>ลากเรียงลำดับก่อน-หลังได้ตามต้องการ &middot; สูงสุด 200 MB รวม</p>
+    </div>
+    <input type="file" id="mg-file-input" accept=".pdf" multiple style="display:none">
+
+    <div id="mg-file-list">
+      <div class="mg-hint" style="margin-top:12px">
+        &#8597; ลากแต่ละแถวเพื่อเรียงลำดับ หรือกดลูกศร &#9650; &#9660;
+      </div>
+      <div id="mg-rows"></div>
+    </div>
+
+    <button class="main-btn" id="mg-btn" disabled>&#128203; รวม PDF ทั้งหมด</button>
+    <div class="prog-wrap" id="mg-prog">
+      <div class="prog-outer"><div class="prog-inner" id="mg-pb"></div></div>
+      <div class="prog-label" id="mg-pl">กำลังรวม PDF...</div>
+    </div>
+  </div>
+
+  <div class="card res-section" id="mg-res">
+    <div id="mg-err"></div>
+    <div id="mg-out"></div>
+    <a class="dl-btn dl-merge" id="mg-dl" href="#" style="display:none" target="_blank">
+      &#11015;&#65039; ดาวน์โหลด merged.pdf
+    </a>
+    <p class="cleanup-note" id="mg-clean-note" style="display:none">
+      &#128465;&#65039; ไฟล์ในเซิร์ฟเวอร์จะถูกลบอัตโนมัติภายใน 15 นาที กรุณาดาวน์โหลดให้ทันเวลา
+    </p>
+  </div>
+</div>
+
+<!-- ════════ TAB: COMPRESS ════════ -->
+<div class="tab-panel" id="tab-compress">
+  <div class="card">
+    <div class="drop-zone" id="cp-drop" onclick="cpFileInput.click()">
+      <span class="icon">&#128230;</span>
+      <p><strong>คลิกหรือลากไฟล์ PDF ที่ต้องการลดขนาด</strong></p>
+      <p>รองรับหลายไฟล์ &middot; สูงสุด 200 MB รวม</p>
+    </div>
+    <input type="file" id="cp-file-input" accept=".pdf" multiple style="display:none">
+
+    <div id="cp-file-wrap">
+      <table style="margin-top:12px">
+        <thead><tr>
+          <th style="width:1.8rem">#</th>
+          <th>ชื่อไฟล์</th>
+          <th style="width:90px">ขนาดเดิม</th>
+          <th style="width:2.5rem"></th>
+        </tr></thead>
+        <tbody id="cp-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="target-row" style="margin-top:12px">
+      <label>&#127919; ขนาดไฟล์สูงสุดที่ต้องการ:</label>
+      <input type="number" id="cp-target" min="0.1" max="500" step="0.1" value="2">
+      <span class="unit">MB</span>
+      <button type="button" class="chip" onclick="cpSetTarget(1)">1 MB</button>
+      <button type="button" class="chip" onclick="cpSetTarget(2)">2 MB</button>
+      <button type="button" class="chip" onclick="cpSetTarget(5)">5 MB</button>
+      <button type="button" class="chip" onclick="cpSetTarget(10)">10 MB</button>
+    </div>
+    <div class="hint">&#128161; ระบบจะลดคุณภาพ/ขนาดรูปภาพในไฟล์ให้มากที่สุดเท่าที่ยังอ่านได้ จนกว่าจะได้ขนาดตามที่กำหนด (บีบอัดได้จริงเฉพาะไฟล์ที่มีรูปภาพ/สแกน หากไฟล์เป็นข้อความล้วนอยู่แล้วอาจลดขนาดได้ไม่มาก)</div>
+
+    <button class="main-btn" id="cp-btn" disabled>&#128230; ลดขนาดไฟล์ PDF</button>
+    <div class="prog-wrap" id="cp-prog">
+      <div class="prog-outer"><div class="prog-inner" id="cp-pb"></div></div>
+      <div class="prog-label" id="cp-pl">กำลังบีบอัด...</div>
+    </div>
+  </div>
+
+  <div class="card res-section" id="cp-res">
+    <div id="cp-err"></div>
+    <div id="cp-out"></div>
+    <a class="dl-btn dl-zip" id="cp-zip" href="#" style="display:none" target="_blank">
+      &#11015;&#65039; ดาวน์โหลดทั้งหมดเป็น ZIP
+    </a>
+    <p class="cleanup-note" id="cp-clean-note" style="display:none">
+      &#128465;&#65039; ไฟล์ในเซิร์ฟเวอร์จะถูกลบอัตโนมัติภายใน 15 นาที กรุณาดาวน์โหลดให้ทันเวลา
+    </p>
+  </div>
+</div>
+
+<script>
+/* ═══════════════ TAB SWITCH ═══════════════ */
+function switchTab(name, btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+/* ═══════════════ SHARED UTILS ═══════════════ */
+function validPageStr(v){ return !v.trim() || /^[\d,\- ]+$/.test(v); }
+
+function makeProgress(pbId, plId, wrapId){
+  let pct=8;
+  document.getElementById(wrapId).style.display='block';
+  document.getElementById(pbId).style.width='8%';
+  document.getElementById(plId).textContent='กำลังดำเนินการ...';
+  const t=setInterval(()=>{
+    pct=Math.min(pct+3,84);
+    document.getElementById(pbId).style.width=pct+'%';
+    document.getElementById(plId).textContent=`กำลังดำเนินการ... (${pct}%)`;
+  },700);
+  return {
+    done(msg='เสร็จสิ้น!'){
+      clearInterval(t);
+      document.getElementById(pbId).style.width='100%';
+      document.getElementById(plId).textContent=msg;
+      setTimeout(()=>{ document.getElementById(wrapId).style.display='none'; },1800);
+    },
+    fail(){ clearInterval(t); document.getElementById(plId).textContent='เกิดข้อผิดพลาด'; }
+  };
+}
+
+/* ═══════════════ CONVERT TAB ═══════════════ */
+const cvFileInput = document.getElementById('cv-file-input');
+const cvDrop      = document.getElementById('cv-drop');
+let cvFiles = [];
+
+function cvRender(){
+  const wrap = document.getElementById('cv-file-wrap');
+  const tb   = document.getElementById('cv-tbody');
+  document.getElementById('cv-btn').disabled = cvFiles.length===0;
+  if(!cvFiles.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block'; tb.innerHTML='';
+  cvFiles.forEach((f,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--mu);font-size:.78rem">${i+1}</td>
+      <td class="fname">&#128196; ${f.name}</td>
+      <td class="pages"><input type="text" id="cvp_${i}" placeholder="ว่าง=ทุกหน้า"
+        oninput="this.className=validPageStr(this.value)?'ok':'err'"></td>
+      <td class="rm"><button title="ลบ" onclick="cvRemove(${i})">&#x2715;</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function cvAdd(list){
+  const ex=new Set(cvFiles.map(f=>f.name));
+  Array.from(list).forEach(f=>{ if(f.type==='application/pdf'&&!ex.has(f.name)){cvFiles.push(f);ex.add(f.name);} });
+  cvRender();
+}
+function cvRemove(i){ cvFiles.splice(i,1); cvRender(); }
+function cvApplyAll(){
+  const v=document.getElementById('cv-global-pages').value;
+  cvFiles.forEach((_,i)=>{
+    const el=document.getElementById(`cvp_${i}`);
+    if(el){ el.value=v; el.className=validPageStr(v)?'ok':'err'; }
+  });
+}
+cvFileInput.addEventListener('change',e=>cvAdd(e.target.files));
+cvDrop.addEventListener('dragover',e=>{e.preventDefault();cvDrop.classList.add('drag-over')});
+cvDrop.addEventListener('dragleave',()=>cvDrop.classList.remove('drag-over'));
+cvDrop.addEventListener('drop',e=>{e.preventDefault();cvDrop.classList.remove('drag-over');cvAdd(e.dataTransfer.files)});
+
+document.getElementById('cv-btn').addEventListener('click', async()=>{
+  if(!cvFiles.length) return;
+  let ok=true;
+  cvFiles.forEach((_,i)=>{ const el=document.getElementById(`cvp_${i}`); if(el&&!validPageStr(el.value))ok=false; });
+  if(!ok){ alert('กรุณาแก้ไขช่องหน้าที่ไฮไลต์แดงก่อน'); return; }
+
+  document.getElementById('cv-btn').disabled=true;
+  const prog=makeProgress('cv-pb','cv-pl','cv-prog');
+  const res=document.getElementById('cv-res');
+  res.style.display='none';
+  document.getElementById('cv-err').innerHTML='';
+  document.getElementById('cv-out').innerHTML='';
+  document.getElementById('cv-zip').style.display='none';
+  document.getElementById('cv-clean-note').style.display='none';
+
+  const form=new FormData();
+  cvFiles.forEach((f,i)=>{
+    form.append('files',f);
+    const el=document.getElementById(`cvp_${i}`);
+    form.append(`pages_${i}`,el?el.value.trim():'');
+  });
+  form.append('format',document.getElementById('cv-fmt').value);
+  form.append('dpi',   document.getElementById('cv-dpi').value);
+
+  try{
+    const r=await fetch('/convert',{method:'POST',body:form});
+    const d=await r.json(); prog.done();
+    res.style.display='block';
+    (d.errors||[]).forEach(e=>{
+      const div=document.createElement('div');div.className='err-box';div.textContent='&#9888;&#65039; '+e;
+      document.getElementById('cv-err').appendChild(div);
+    });
+    (d.results||[]).forEach(item=>{
+      const b=document.createElement('div');b.className='pdf-block';
+      b.innerHTML=`<h3>&#128196; ${item.pdf}
+        <span class="badge bb">&#128196; ${item.total} หน้า</span>
+        <span class="badge bg">&#10003; แปลง ${item.converted} หน้า</span></h3>
+        <div class="img-grid"></div>`;
+      document.getElementById('cv-out').appendChild(b);
+      const g=b.querySelector('.img-grid');
+      item.images.forEach(img=>{
+        const c=document.createElement('div');c.className='img-card';
+        c.innerHTML=`<img src="${img.url}" loading="lazy" alt="${img.name}">
+          <a href="${img.url}" download="${img.name}">&#11015; ${img.name}</a>`;
+        g.appendChild(c);
+      });
+    });
+    if(d.sid&&(d.results||[]).length){
+      const z=document.getElementById('cv-zip');
+      z.href='/zip/'+d.sid; z.style.display='block';
+      document.getElementById('cv-clean-note').style.display='block';
+    }
+  }catch(e){ prog.fail();
+    const div=document.createElement('div');div.className='err-box';div.textContent='&#10060; '+e.message;
+    document.getElementById('cv-err').appendChild(div);
+    res.style.display='block';
+  }finally{ document.getElementById('cv-btn').disabled=false; }
+});
+
+/* ═══════════════ MERGE TAB ═══════════════ */
+const mgFileInput = document.getElementById('mg-file-input');
+const mgDrop      = document.getElementById('mg-drop');
+let mgFiles = [];   // [{file, id}]
+let dragSrc = null;
+
+function mgRender(){
+  const wrap=document.getElementById('mg-file-list');
+  const rows=document.getElementById('mg-rows');
+  document.getElementById('mg-btn').disabled=mgFiles.length<1;
+  if(!mgFiles.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block'; rows.innerHTML='';
+  mgFiles.forEach((item,i)=>{
+    const row=document.createElement('div');
+    row.className='mg-row'; row.draggable=true; row.dataset.idx=i;
+    row.innerHTML=`<div class="mg-num">${i+1}</div>
+      <div class="mg-name">&#128196; ${item.file.name}</div>
+      <div class="mg-arrows">
+        <button title="ขึ้น" onclick="mgMove(${i},-1)" ${i===0?'disabled':''}>&#9650;</button>
+        <button title="ลง"  onclick="mgMove(${i},+1)" ${i===mgFiles.length-1?'disabled':''}>&#9660;</button>
+      </div>
+      <button class="mg-rm" title="ลบ" onclick="mgRemove(${i})">&#x2715;</button>`;
+    // drag events
+    row.addEventListener('dragstart',e=>{ dragSrc=i; row.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    row.addEventListener('dragend',()=>{ row.classList.remove('dragging'); rows.querySelectorAll('.mg-row').forEach(r=>r.classList.remove('drag-target')); });
+    row.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; rows.querySelectorAll('.mg-row').forEach(r=>r.classList.remove('drag-target')); row.classList.add('drag-target'); });
+    row.addEventListener('drop',e=>{ e.preventDefault(); if(dragSrc===null||dragSrc===i)return; mgSwap(dragSrc,i); dragSrc=null; });
+    rows.appendChild(row);
+  });
+}
+function mgAdd(list){
+  const ex=new Set(mgFiles.map(x=>x.file.name));
+  Array.from(list).forEach(f=>{ if(f.type==='application/pdf'&&!ex.has(f.name)){ mgFiles.push({file:f}); ex.add(f.name); } });
+  mgRender();
+}
+function mgRemove(i){ mgFiles.splice(i,1); mgRender(); }
+function mgMove(i,dir){
+  const j=i+dir;
+  if(j<0||j>=mgFiles.length)return;
+  [mgFiles[i],mgFiles[j]]=[mgFiles[j],mgFiles[i]]; mgRender();
+}
+function mgSwap(a,b){ [mgFiles[a],mgFiles[b]]=[mgFiles[b],mgFiles[a]]; mgRender(); }
+
+mgFileInput.addEventListener('change',e=>mgAdd(e.target.files));
+mgDrop.addEventListener('dragover',e=>{e.preventDefault();mgDrop.classList.add('drag-over')});
+mgDrop.addEventListener('dragleave',()=>mgDrop.classList.remove('drag-over'));
+mgDrop.addEventListener('drop',e=>{e.preventDefault();mgDrop.classList.remove('drag-over');mgAdd(e.dataTransfer.files)});
+
+document.getElementById('mg-btn').addEventListener('click', async()=>{
+  if(mgFiles.length<1)return;
+  document.getElementById('mg-btn').disabled=true;
+  const prog=makeProgress('mg-pb','mg-pl','mg-prog');
+  const res=document.getElementById('mg-res');
+  res.style.display='none';
+  document.getElementById('mg-err').innerHTML='';
+  document.getElementById('mg-out').innerHTML='';
+  document.getElementById('mg-dl').style.display='none';
+  document.getElementById('mg-clean-note').style.display='none';
+
+  const form=new FormData();
+  const order=mgFiles.map((_,i)=>i);
+  mgFiles.forEach(item=>form.append('files',item.file));
+  form.append('order',JSON.stringify(order));
+
+  try{
+    const r=await fetch('/merge',{method:'POST',body:form});
+    const d=await r.json(); prog.done();
+    res.style.display='block';
+    (d.errors||[]).forEach(e=>{
+      const div=document.createElement('div');div.className='err-box';div.textContent='&#9888;&#65039; '+e;
+      document.getElementById('mg-err').appendChild(div);
+    });
+    if(d.url){
+      const info=document.createElement('div');
+      info.className='info-box';
+      info.innerHTML=`<strong>&#10003; รวม PDF สำเร็จ!</strong><br>
+        &#128196; จำนวนหน้าทั้งหมด: <strong>${d.total_pages} หน้า</strong><br>
+        &#128221; ลำดับไฟล์:<br>
+        ${(d.files||[]).map((n,i)=>`&nbsp;&nbsp;${i+1}. ${n}`).join('<br>')}`;
+      document.getElementById('mg-out').appendChild(info);
+      const dl=document.getElementById('mg-dl');
+      dl.href=d.url; dl.style.display='block';
+      document.getElementById('mg-clean-note').style.display='block';
+    }
+  }catch(e){ prog.fail();
+    const div=document.createElement('div');div.className='err-box';div.textContent='&#10060; '+e.message;
+    document.getElementById('mg-err').appendChild(div);
+    res.style.display='block';
+  }finally{ document.getElementById('mg-btn').disabled=false; }
+});
+
+/* ═══════════════ COMPRESS TAB ═══════════════ */
+const cpFileInput = document.getElementById('cp-file-input');
+const cpDrop      = document.getElementById('cp-drop');
+let cpFiles = [];
+
+function formatBytes(b){
+  if(b>=1024*1024) return (b/1024/1024).toFixed(2)+' MB';
+  if(b>=1024) return (b/1024).toFixed(1)+' KB';
+  return b+' B';
+}
+
+function cpRender(){
+  const wrap = document.getElementById('cp-file-wrap');
+  const tb   = document.getElementById('cp-tbody');
+  document.getElementById('cp-btn').disabled = cpFiles.length===0;
+  if(!cpFiles.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block'; tb.innerHTML='';
+  cpFiles.forEach((f,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--mu);font-size:.78rem">${i+1}</td>
+      <td class="fname">&#128196; ${f.name}</td>
+      <td style="font-size:.82rem;color:var(--mu)">${formatBytes(f.size)}</td>
+      <td class="rm"><button title="ลบ" onclick="cpRemove(${i})">&#x2715;</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function cpAdd(list){
+  const ex=new Set(cpFiles.map(f=>f.name));
+  Array.from(list).forEach(f=>{ if(f.type==='application/pdf'&&!ex.has(f.name)){cpFiles.push(f);ex.add(f.name);} });
+  cpRender();
+}
+function cpRemove(i){ cpFiles.splice(i,1); cpRender(); }
+function cpSetTarget(mb){ document.getElementById('cp-target').value=mb; }
+
+cpFileInput.addEventListener('change',e=>cpAdd(e.target.files));
+cpDrop.addEventListener('dragover',e=>{e.preventDefault();cpDrop.classList.add('drag-over')});
+cpDrop.addEventListener('dragleave',()=>cpDrop.classList.remove('drag-over'));
+cpDrop.addEventListener('drop',e=>{e.preventDefault();cpDrop.classList.remove('drag-over');cpAdd(e.dataTransfer.files)});
+
+document.getElementById('cp-btn').addEventListener('click', async()=>{
+  if(!cpFiles.length) return;
+  const targetVal = parseFloat(document.getElementById('cp-target').value);
+  if(!targetVal || targetVal<=0){ alert('กรุณากรอกขนาดไฟล์เป้าหมายให้ถูกต้อง'); return; }
+
+  document.getElementById('cp-btn').disabled=true;
+  const prog=makeProgress('cp-pb','cp-pl','cp-prog');
+  const res=document.getElementById('cp-res');
+  res.style.display='none';
+  document.getElementById('cp-err').innerHTML='';
+  document.getElementById('cp-out').innerHTML='';
+  document.getElementById('cp-zip').style.display='none';
+  document.getElementById('cp-clean-note').style.display='none';
+
+  const form=new FormData();
+  cpFiles.forEach(f=>form.append('files',f));
+  form.append('target_mb', targetVal);
+
+  try{
+    const r=await fetch('/compress',{method:'POST',body:form});
+    const d=await r.json(); prog.done();
+    res.style.display='block';
+    (d.errors||[]).forEach(e=>{
+      const div=document.createElement('div');div.className='err-box';div.textContent='&#9888;&#65039; '+e;
+      document.getElementById('cp-err').appendChild(div);
+    });
+    (d.results||[]).forEach(item=>{
+      const b=document.createElement('div');b.className='pdf-block';
+      const statusBadge = item.reached_target
+        ? `<span class="badge bg">&#10003; ถึงเป้าหมายแล้ว</span>`
+        : `<span class="badge bw">&#9888; ลดได้มากที่สุดแล้ว (ยังเกินเป้า)</span>`;
+      b.innerHTML=`<h3>&#128196; ${item.name}
+        <span class="badge bb">${formatBytes(item.orig_size)} &#8594; ${formatBytes(item.final_size)}</span>
+        <span class="badge bg">ลดลง ${item.reduced_pct}%</span>
+        ${statusBadge}</h3>
+        <a class="dl-btn dl-merge" href="${item.url}" target="_blank">&#11015; ดาวน์โหลดไฟล์ที่บีบอัดแล้ว</a>`;
+      document.getElementById('cp-out').appendChild(b);
+    });
+    if(d.sid && (d.results||[]).length>1){
+      const z=document.getElementById('cp-zip');
+      z.href='/compress-zip/'+d.sid; z.style.display='block';
+      document.getElementById('cp-clean-note').style.display='block';
+    } else if(d.sid && (d.results||[]).length){
+      document.getElementById('cp-clean-note').style.display='block';
+    }
+  }catch(e){ prog.fail();
+    const div=document.createElement('div');div.className='err-box';div.textContent='&#10060; '+e.message;
+    document.getElementById('cp-err').appendChild(div);
+    res.style.display='block';
+  }finally{ document.getElementById('cp-btn').disabled=false; }
+});
+</script>
+</body>
+</html>

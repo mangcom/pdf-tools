@@ -1,0 +1,14 @@
+services:
+  pdf-tools:
+    build: .
+    image: pdf-tools:latest
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+
+volumes:
+  uploads:
+  outputs:

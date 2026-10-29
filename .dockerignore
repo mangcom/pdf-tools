@@ -1,0 +1,15 @@
+venv/
+poppler/
+uploads/
+outputs/
+__pycache__/
+*.pyc
+.vscode/
+.git/
+.gitignore
+README.md
+install.bat
+run.bat
+Dockerfile
+.dockerignore
+docker-compose.yml
