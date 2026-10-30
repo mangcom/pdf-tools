@@ -10,7 +10,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py .
+COPY app.py guards.py gunicorn.conf.py .
 COPY templates/ templates/
 COPY static/ static/
 
@@ -20,10 +20,15 @@ RUN useradd --create-home --shell /usr/sbin/nologin appuser \
 
 USER appuser
 
+# ไฟล์ชั่วคราวของ Werkzeug/Python tempfile และโควตาดิสก์ของแอป ต้องชี้ไปที่ /tmp
+# ซึ่งถูก mount เป็น named volume บนดิสก์ (ดู docker-compose.yml) ไม่ใช่ tmpfs ที่กิน RAM
+ENV TMPDIR=/tmp \
+    PDF_TMP_DIR=/tmp
+
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/', timeout=3)" || exit 1
 
-# ตัว -w (workers) / --timeout ปรับได้ตามทรัพยากรเครื่อง; timeout ยาวหน่อยเพราะไฟล์ PDF ใหญ่ใช้เวลาแปลง/บีบอัดได้หลายวินาที
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "300", "app:app"]
+# จำนวน worker / timeout ของ gunicorn ปรับได้ใน gunicorn.conf.py ตามทรัพยากรเครื่อง
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
