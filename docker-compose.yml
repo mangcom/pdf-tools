@@ -5,10 +5,19 @@ services:
     restart: unless-stopped
     ports:
       - "5000:5000"
+    environment:
+      - PDF_DISK_LIMIT_MB=4300   # โควตาดิสก์รวมของ uploads+outputs+tmp (MB) ก่อนเริ่มลบเซสชันเก่า
+      - PDF_CONVERT_MEM_MB=600   # งบ RAM โดยประมาณต่องาน /convert หนึ่งครั้ง (MB) เกินนี้ตอบ 413
+      - PDF_TMP_DIR=/tmp
     volumes:
       - uploads:/app/uploads
       - outputs:/app/outputs
+      - work-tmp:/tmp
+    # ตัวเลือก: จำกัด RAM ของ container แบบ hard limit (ปิดไว้เป็นค่าเริ่มต้น เพราะงาน PDF ขนาดใหญ่ใช้ RAM แปรผันได้มาก
+    # ถ้าจะเปิดใช้ ให้ปรับตามทรัพยากรเครื่องจริงและทดสอบก่อน)
+    # mem_limit: 1g
 
 volumes:
   uploads:
   outputs:
+  work-tmp:

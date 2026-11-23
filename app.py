@@ -425,6 +425,9 @@ def dl_compress_zip(sid):
                      download_name="compressed_pdfs.zip")
 
 
+import guards; guards.init(app, UPLOAD_FOLDER, OUTPUT_FOLDER, parse_pages)
+
+
 if __name__ == "__main__":
     debug = os.environ.get("FLASK_DEBUG", "1") == "1"
     app.run(debug=debug, host="0.0.0.0", port=5000)

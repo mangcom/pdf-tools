@@ -70,8 +70,9 @@ docker run -d --name pdf-tools -p 5000:5000 --restart unless-stopped pdf-tools
 ### สิ่งที่ Dockerfile ทำให้แล้ว
 - ติดตั้ง `poppler-utils` (ใช้แทนโฟลเดอร์ `poppler/` ที่ bundle ไว้สำหรับ Windows เท่านั้น — โฟลเดอร์นั้นจะไม่ถูกก็อปปี้เข้า image)
 - รันเป็น non-root user (`appuser`)
-- รันด้วย Gunicorn (2 workers, timeout 300 วินาที — เผื่อไฟล์ PDF ใหญ่ที่ใช้เวลาแปลง/บีบอัดนาน)
+- รันด้วย Gunicorn ผ่าน `gunicorn.conf.py` (2 workers, timeout 300 วินาที — เผื่อไฟล์ PDF ใหญ่ที่ใช้เวลาแปลง/บีบอัดนาน; ล้างไฟล์ค้างใน `uploads/`, `outputs/`, `$PDF_TMP_DIR` ทุกครั้งที่ container เริ่ม/รีสตาร์ท)
 - มี `HEALTHCHECK` ให้ตรวจสุขภาพ container อัตโนมัติ
+- ไฟล์ชั่วคราวทั้งหมด (`uploads/`, `outputs/`, `/tmp`) เก็บบนดิสก์ผ่าน named volume ไม่ใช่ RAM/tmpfs — ดู [ที่เก็บไฟล์ชั่วคราวและโควตาดิสก์](#ที่เก็บไฟล์ชั่วคราวและโควตาดิสก์)
 
 ### นำไปใช้งานหลัง Reverse Proxy (nginx / Caddy / Traefik)
 
@@ -99,6 +100,20 @@ server {
 ### ข้อมูลไม่ถูกเก็บถาวร
 
 `docker-compose.yml` สร้าง named volume `uploads` และ `outputs` ไว้ให้ แต่เนื่องจากแอปลบไฟล์อัตโนมัติภายใน 15 นาทีอยู่แล้ว (ดู [การตั้งค่า](#การตั้งค่า-configuration)) จึงไม่จำเป็นต้อง backup volume เหล่านี้
+
+### ที่เก็บไฟล์ชั่วคราวและโควตาดิสก์
+
+ไฟล์ชั่วคราวทั้งหมด (`uploads/`, `outputs/`, และไฟล์พักของ Werkzeug ที่ `/tmp`) เก็บบนดิสก์ผ่าน Docker **named volume** (`uploads`, `outputs`, `work-tmp`) ไม่ใช่ RAM/tmpfs — ใช้ชื่อ volume แบบนี้เพื่อให้ `docker-compose.yml` ไฟล์เดียวรันได้ทั้ง Docker Desktop บน Windows และ Docker บน Linux โดยไม่ต้องพึ่ง path เฉพาะระบบปฏิบัติการ (เช่น `/srv/...`)
+
+ความแตกต่างระหว่างสองแพลตฟอร์มที่ควรรู้:
+- **Linux**: named volume อยู่ใต้ `/var/lib/docker/volumes/...` ซึ่งใช้ดิสก์จริงของโฮสต์ ถ้าต้องการ**เพดานแข็ง** (hard limit) ของพื้นที่ดิสก์ แนะนำให้เตรียม partition/ดิสก์ขนาดคงที่แยกไว้ แล้วใช้ **bind mount** ไปที่ path นั้นแทน named volume (ปรับ `volumes:` ใน `docker-compose.yml` เอง)
+- **Docker Desktop (Windows)**: named volume อยู่ในดิสก์เสมือนของ WSL2 ซึ่งไม่มีเพดานแข็งตามขนาดไฟล์ volume (ขยายได้จนกว่าดิสก์ WSL2/โฮสต์จะเต็ม) จึงต้องพึ่ง**โควตาระดับแอป** (`PDF_DISK_LIMIT_MB`) เป็นตัวกันหลักแทน
+
+โควตาระดับแอปและตัวกัน RAM ของงานแปลงรูปอยู่ใน `guards.py` (ลงทะเบียน `before_request`/`after_request` เพียงบรรทัดเดียวใน `app.py`):
+- ก่อนรับ `POST /convert`, `/merge`, `/compress`: ถ้าพื้นที่ที่ใช้ไปแล้ว + ไฟล์ที่กำลังอัปโหลด (ประมาณ 3 เท่าของ `Content-Length`) เกิน `PDF_DISK_LIMIT_MB` จะลบเซสชันเก่าสุดก่อน ถ้ายังไม่พอจะตอบ `503`
+- หลังงานเสร็จ ถ้าพื้นที่ที่ใช้ยังเกินโควตา จะลบเซสชันเก่าสุดจนเหลือ 80% ของโควตา
+- ก่อน `/convert`: ประมาณ RAM ที่ `pdf2image` ต้องใช้ (หน้าที่เลือกแปลง × ขนาดพิกเซลตาม DPI × 3 ไบต์ × 1.5) จาก `pypdf` ถ้าเกิน `PDF_CONVERT_MEM_MB` จะตอบ `413` พร้อมคำแนะนำให้ลด DPI หรือเลือกช่วงหน้า — ป้องกันกรณี PDF หลายร้อยหน้าที่ DPI สูงซึ่งโหลดทุกหน้าเข้า RAM พร้อมกัน
+- ไฟล์/โฟลเดอร์ที่ขึ้นต้นด้วย `.` (เช่น `.last_cleanup`) จะไม่ถูกลบโดยตัวกันโควตา
 
 ---
 
@@ -163,11 +178,20 @@ venv\Scripts\python app.py
 |---|---|---|
 | `FLASK_DEBUG` | `1` | ตั้งเป็น `0` เพื่อปิด Flask debug mode |
 
-ปรับจำนวน worker / timeout ของ Gunicorn ได้ที่ `CMD` ใน `Dockerfile`:
-```dockerfile
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "300", "app:app"]
+ค่าที่ปรับผ่าน environment variable ได้ทั้งตอนรันแบบ local และผ่าน Docker (`guards.py`, ดู [ที่เก็บไฟล์ชั่วคราวและโควตาดิสก์](#ที่เก็บไฟล์ชั่วคราวและโควตาดิสก์)) — ตั้งไว้แล้วใน `docker-compose.yml`, ไม่ต้องตั้งเพิ่มเองเพื่อให้ `docker compose up -d --build` รันได้ทันที:
+
+| ตัวแปร | ค่าเริ่มต้น | ความหมาย |
+|---|---|---|
+| `PDF_DISK_LIMIT_MB` | `5000` (ตั้งเป็น `4300` ใน `docker-compose.yml`) | โควตาดิสก์รวมของ `uploads/` + `outputs/` + `$PDF_TMP_DIR` (MB) เกินนี้จะลบเซสชันเก่าสุดก่อน หรือตอบ `503` ถ้าลบแล้วยังไม่พอ |
+| `PDF_CONVERT_MEM_MB` | `600` | งบ RAM โดยประมาณต่องาน `/convert` หนึ่งครั้ง (MB) เกินนี้ตอบ `413` |
+| `PDF_TMP_DIR` | `/tmp` | ไดเรกทอรีที่ Werkzeug/Python ใช้พักไฟล์อัปโหลดขนาดใหญ่ และนับรวมในโควตาดิสก์ด้านบน ต้องชี้ไปที่ดิสก์จริง (ดูหัวข้อด้านบน) ไม่ใช่ tmpfs |
+
+ปรับจำนวน worker / timeout ของ Gunicorn ได้ที่ `gunicorn.conf.py`:
+```python
+workers = 2
+timeout = 300
 ```
-กฎทั่วไป: ตั้ง `--workers` ประมาณ `(จำนวน CPU core x 2) + 1` และเพิ่ม `--timeout` ถ้าเซิร์ฟเวอร์ต้องรับไฟล์ PDF ขนาดใหญ่/จำนวนหน้ามาก ๆ บ่อย ๆ
+กฎทั่วไป: ตั้ง `workers` ประมาณ `(จำนวน CPU core x 2) + 1` และเพิ่ม `timeout` ถ้าเซิร์ฟเวอร์ต้องรับไฟล์ PDF ขนาดใหญ่/จำนวนหน้ามาก ๆ บ่อย ๆ
 
 ---
 
@@ -176,9 +200,11 @@ CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "300",
 ```
 PDF/
 ├── app.py               ← Flask backend (routes, logic แปลง/รวม/บีบอัด PDF, cleanup)
+├── guards.py            ← โควตาดิสก์ของไฟล์ชั่วคราว + งบ RAM ของงานแปลงรูป (before_request/after_request)
+├── gunicorn.conf.py     ← ค่า config ของ Gunicorn + ล้างไฟล์ค้างตอน container เริ่ม/รีสตาร์ท
 ├── requirements.txt     ← Python dependencies
 ├── Dockerfile           ← สร้าง image สำหรับ production (ใช้ poppler-utils + gunicorn)
-├── docker-compose.yml   ← รัน container พร้อม volume สำหรับ uploads/outputs
+├── docker-compose.yml   ← รัน container พร้อม named volume สำหรับ uploads/outputs/tmp (ดิสก์ ไม่ใช่ RAM)
 ├── .dockerignore
 ├── install.bat          ← (Windows) สร้าง venv + ติดตั้ง packages
 ├── run.bat              ← (Windows) รันแอปแบบ local พร้อมตั้ง PATH ของ poppler
@@ -226,3 +252,9 @@ PDF/
 
 **ดาวน์โหลดไฟล์ไม่ทัน ไฟล์หายไปแล้ว**
 - ไฟล์ทุกเมนูถูกลบอัตโนมัติภายใน 15 นาทีนับจากตอนสร้าง (ดู `SESSION_TTL`) ต้องประมวลผลใหม่อีกครั้งถ้าพลาดเวลา
+
+**แปลง PDF เป็นรูปแล้วได้ error 413 "งานนี้ใช้หน่วยความจำประมาณ ... MB เกินที่กำหนด"**
+- PDF หน้ามาก + DPI สูงใช้ RAM ในการแปลงมากเกินงบ `PDF_CONVERT_MEM_MB` (ค่าเริ่มต้น 600) ให้ลด DPI หรือเลือกแปลงเฉพาะบางช่วงหน้าแทนทั้งไฟล์ (ดู [ที่เก็บไฟล์ชั่วคราวและโควตาดิสก์](#ที่เก็บไฟล์ชั่วคราวและโควตาดิสก์))
+
+**ได้ error 503 "ระบบกำลังใช้งานหนาแน่น พื้นที่ชั่วคราวเต็ม"**
+- พื้นที่ดิสก์ของ `uploads/`, `outputs/`, `$PDF_TMP_DIR` รวมกันเกิน `PDF_DISK_LIMIT_MB` และลบเซสชันเก่าสุดแล้วก็ยังไม่พอ (มักเกิดเมื่อมีผู้ใช้หลายคนอัปโหลดไฟล์ใหญ่พร้อมกัน) ลองใหม่อีกครั้งในอีกสักครู่ หรือเพิ่มค่า `PDF_DISK_LIMIT_MB` ถ้าดิสก์ของเครื่องมีพื้นที่เหลือจริง

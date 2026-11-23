@@ -7,3 +7,4 @@ outputs/*
 !uploads/.gitkeep
 !outputs/.gitkeep
 .vscode/
+Requirement/
